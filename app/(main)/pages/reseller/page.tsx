@@ -15,7 +15,7 @@ import { Dropdown, DropdownChangeEvent } from 'primereact/dropdown';
 import { _fetchCountries } from '@/app/redux/actions/countriesActions';
 import { _fetchTelegramList } from '@/app/redux/actions/telegramActions';
 import { AppDispatch } from '@/app/redux/store';
-import { Country, Currency, District, Province, Reseller } from '@/types/interface';
+import { Country, Currency, District, Province, Reseller, ResellerGroup } from '@/types/interface';
 import { ProgressBar } from 'primereact/progressbar';
 import { _addReseller, _changeResellerStatus, _deleteReseller, _editReseller, _fetchResellers, _getResellerById } from '@/app/redux/actions/resellerActions';
 import { FileUpload } from 'primereact/fileupload';
@@ -171,7 +171,7 @@ const ResellerPage = () => {
 
     const saveReseller = () => {
         setSubmitted(true);
-        console.log(reseller);
+        //console.log(reseller);
         //return;
         if (
             !reseller.reseller_name ||
@@ -183,7 +183,6 @@ const ResellerPage = () => {
             !reseller.province_id ||
             !reseller.districts_id ||
             !reseller.code ||
-            !reseller.reseller_group_id ||
             !reseller.sub_reseller_limit
         ) {
             toast.current?.show({
@@ -229,6 +228,7 @@ const ResellerPage = () => {
             province: matchingProvince,
             province_id: parseInt(reseller.province_id?.toString() || '0'),
             districts_id: parseInt(reseller.districts_id?.toString() || '0'),
+            reseller_group_id: parseInt(reseller.reseller_group_id?.toString() || '0'),
 
             // Boolean fields
             can_set_commission_group: toBoolean(reseller.can_set_commission_group),
@@ -717,6 +717,8 @@ const rightToolbarTemplate = () => {
         }
     }, [reseller?.province_id, districts]);
 
+
+
     const handleSubmitFilter = (filters: any) => {
         const cleanedFilters = Object.fromEntries(Object.entries(filters).filter(([_, value]) => value !== null && value !== ''));
         setActiveFilters(cleanedFilters);
@@ -1114,11 +1116,11 @@ const rightToolbarTemplate = () => {
                                         style={{ fontSize: '0.8rem', height: '40px' }}
                                         className="w-full"
                                     />
-                                    {submitted && !reseller.reseller_group_id && (
+                                    {/* {submitted && !reseller.reseller_group_id && (
                                         <small className="p-invalid" style={{ color: 'red' }}>
                                             {t('THIS_FIELD_IS_REQUIRED')}
                                         </small>
-                                    )}
+                                    )} */}
                                 </div>
                                 <div className="field col-6 md:col-6">
                                     <label style={{ fontWeight: 'bold', fontSize: '0.8rem' }} htmlFor="name">
