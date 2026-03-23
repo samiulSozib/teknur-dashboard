@@ -24,7 +24,6 @@ interface WithdrawFilters {
   status?: string;
   reseller_id?: number;
   currency_id?: number;
-  payment_method_id?: number;
   start_date?: string;
   end_date?: string;
 }
@@ -63,7 +62,7 @@ export const fetchWithdrawRequests = (
     dispatch({ 
       type: FETCH_WITHDRAW_REQUESTS_SUCCESS, 
       payload: { 
-        data: response.data.data.withdraw_requests || response.data,
+        data: response.data.data.withdraw_requests || response.data.data || response.data,
         pagination: response.data.pagination || response.data.meta?.pagination || null
       } 
     });
@@ -80,11 +79,17 @@ export const createWithdrawRequest = (
     reseller_id: number;
     currency_id: number;
     amount: number;
-    payment_method_id: number;
-    account_name: string;
-    account_number: string;
-    bank_name: string;
-    notes?: string;
+    net_amount?: number;
+    commission_amount?: number;
+    admin_note?: string;
+    bank_details?: {
+      bank_name?: string;
+      account_holder_name?: string;
+      account_number?: string;
+      iban?: string;
+      branch?: string;
+      swift_code?: string;
+    }
   },
   toast: React.RefObject<Toast>,
   t: (key: string) => string,
@@ -105,7 +110,10 @@ export const createWithdrawRequest = (
       }
     );
 
-    dispatch({ type: CREATE_WITHDRAW_REQUEST_SUCCESS, payload: response.data.data });
+    dispatch({ 
+      type: CREATE_WITHDRAW_REQUEST_SUCCESS, 
+      payload: response.data.data 
+    });
     
     toast.current?.show({
       severity: "success",
@@ -132,18 +140,17 @@ export const createWithdrawRequest = (
 // Update Withdraw Request Status (Approve/Reject)
 export const updateWithdrawStatus = (
   id: number,
-  status: 'approved' | 'rejected',
-  toast: React.RefObject<Toast>,
-  t: (key: string) => string,
+  status: string,
   admin_note?: string,
-  
+  toast?: React.RefObject<Toast>,
+  t?: (key: string) => string,
   onSuccess?: () => void
 ) => async (dispatch: Dispatch) => {
   dispatch({ type: UPDATE_WITHDRAW_STATUS_REQUEST });
 
   try {
     const token = getAuthToken();
-    const response = await axios.post(
+    const response = await axios.put(
       `${process.env.NEXT_PUBLIC_BASE_URL}/withdraw-requests/${id}/update-status`,
       { status, admin_note },
       {
@@ -154,15 +161,20 @@ export const updateWithdrawStatus = (
       }
     );
 
-    dispatch({ type: UPDATE_WITHDRAW_STATUS_SUCCESS, payload: response.data.data });
-    
-    const statusText = status === 'approved' ? t("APPROVED") : t("REJECTED");
-    toast.current?.show({
-      severity: "success",
-      summary: t("SUCCESS"),
-      detail: `${t("WITHDRAW_REQUEST")} ${statusText} ${t("SUCCESSFULLY")}`,
-      life: 3000,
+    dispatch({ 
+      type: UPDATE_WITHDRAW_STATUS_SUCCESS, 
+      payload: response.data.data 
     });
+    
+    if (toast && t) {
+      //const statusText = status === 1 ? t("APPROVED") : t("REJECTED");
+      toast.current?.show({
+        severity: "success",
+        summary: t("SUCCESS"),
+        detail: `${t("WITHDRAW_REQUEST")} ${status} ${t("SUCCESSFULLY")}`,
+        life: 3000,
+      });
+    }
 
     if (onSuccess) onSuccess();
 
@@ -170,12 +182,105 @@ export const updateWithdrawStatus = (
     const errorMessage = error.response?.data?.message || error.message || "Failed to update withdraw status";
     dispatch({ type: UPDATE_WITHDRAW_STATUS_FAILURE, payload: errorMessage });
     
+    if (toast && t) {
+      toast.current?.show({
+        severity: "error",
+        summary: t("ERROR"),
+        detail: errorMessage || t("WITHDRAW_STATUS_UPDATE_FAILED"),
+        life: 3000,
+      });
+    }
+  }
+};
+
+// Update Withdraw Request (Full update)
+export const updateWithdrawRequest = (
+  id: number,
+  data: Partial<{
+    amount: number;
+    net_amount: number;
+    commission_amount: number;
+    admin_note: string;
+    bank_details: {
+      bank_name?: string;
+      account_holder_name?: string;
+      account_number?: string;
+      iban?: string;
+      branch?: string;
+      swift_code?: string;
+    }
+  }>,
+  toast: React.RefObject<Toast>,
+  t: (key: string) => string,
+  onSuccess?: () => void
+) => async (dispatch: Dispatch) => {
+  try {
+    const token = getAuthToken();
+    const response = await axios.put(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/withdraw-requests/${id}`,
+      data,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    dispatch({ 
+      type: UPDATE_WITHDRAW_STATUS_SUCCESS, 
+      payload: response.data.data 
+    });
+    
+    toast.current?.show({
+      severity: "success",
+      summary: t("SUCCESS"),
+      detail: t("WITHDRAW_REQUEST_UPDATED_SUCCESSFULLY"),
+      life: 3000,
+    });
+
+    if (onSuccess) onSuccess();
+
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Failed to update withdraw request";
+    
     toast.current?.show({
       severity: "error",
       summary: t("ERROR"),
-      detail: errorMessage || t("WITHDRAW_STATUS_UPDATE_FAILED"),
+      detail: errorMessage || t("WITHDRAW_REQUEST_UPDATE_FAILED"),
       life: 3000,
     });
+  }
+};
+
+// Fetch single withdraw request by ID
+export const fetchWithdrawRequestById = (
+  id: number
+) => async (dispatch: Dispatch) => {
+  dispatch({ type: FETCH_WITHDRAW_REQUESTS_REQUEST });
+
+  try {
+    const token = getAuthToken();
+    const response = await axios.get(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/withdraw-requests/${id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    dispatch({ 
+      type: FETCH_WITHDRAW_REQUESTS_SUCCESS, 
+      payload: { 
+        data: [response.data.data],
+        pagination: null
+      } 
+    });
+
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Failed to fetch withdraw request";
+    dispatch({ type: FETCH_WITHDRAW_REQUESTS_FAILURE, payload: errorMessage });
   }
 };
 

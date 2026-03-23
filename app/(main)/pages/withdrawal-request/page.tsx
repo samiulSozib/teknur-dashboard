@@ -14,45 +14,65 @@ import { useSelector } from 'react-redux';
 import { Dropdown } from 'primereact/dropdown';
 import { InputNumber } from 'primereact/inputnumber';
 import { AppDispatch } from '@/app/redux/store';
-import { Currency, Reseller, PaymentMethod, WithdrawRequest } from '@/types/interface';
+import { Currency, Reseller, WithdrawRequest } from '@/types/interface';
 import { ProgressBar } from 'primereact/progressbar';
 import withAuth from '../../authGuard';
 import { useTranslation } from 'react-i18next';
 import { customCellStyle } from '../../utilities/customRow';
 import i18n from '@/i18n';
 import { isRTL } from '../../utilities/rtlUtil';
-import { Badge } from 'primereact/badge';
-import { _fetchCurrencies } from '@/app/redux/actions/currenciesActions';
-
-import { Calendar } from 'primereact/calendar';
 import { Tag } from 'primereact/tag';
-import { Card } from 'primereact/card';
+import { Calendar } from 'primereact/calendar';
+import { _fetchCurrencies } from '@/app/redux/actions/currenciesActions';
 import { _fetchResellers } from '@/app/redux/actions/resellerActions';
-import { _fetchPaymentMethods } from '@/app/redux/actions/paymentMethodActions';
 import { clearWithdrawFilters, createWithdrawRequest, fetchWithdrawRequests, setWithdrawFilters, updateWithdrawStatus } from '@/app/redux/actions/withdrawalRequestActions';
 
+// Define the WithdrawRequestCreate type for the dialog
+interface WithdrawRequestCreate {
+  reseller_id: number;
+  currency_id: number;
+  amount: number;
+  net_amount?: number;
+  commission_amount?: number;
+  admin_note?: string;
+  bank_details?: {
+    bank_name?: string;
+    account_holder_name?: string;
+    account_number?: string;
+    iban?: string;
+    branch?: string;
+    swift_code?: string;
+  };
+}
+
 const WithdrawRequestsPage = () => {
-  let emptyWithdrawRequest: Partial<WithdrawRequest> = {
+  let emptyWithdrawRequest: WithdrawRequestCreate = {
     reseller_id: 0,
     currency_id: 0,
     amount: 0,
-    payment_method_id: 0,
-    account_name: '',
-    account_number: '',
-    bank_name: '',
-    notes: '',
+    net_amount: 0,
+    commission_amount: 0,
+    bank_details: {
+      bank_name: '',
+      account_holder_name: '',
+      account_number: '',
+      iban: '',
+      branch: '',
+      swift_code: ''
+    }
   };
 
   const [withdrawRequestDialog, setWithdrawRequestDialog] = useState(false);
   const [statusUpdateDialog, setStatusUpdateDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<WithdrawRequest | null>(null);
-  const [withdrawRequest, setWithdrawRequest] = useState<Partial<WithdrawRequest>>(emptyWithdrawRequest);
+  const [withdrawRequest, setWithdrawRequest] = useState<WithdrawRequestCreate>(emptyWithdrawRequest);
   const [selectedWithdrawRequests, setSelectedWithdrawRequests] = useState<WithdrawRequest[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [adminNote, setAdminNote] = useState('');
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [selectedResellerCurrency, setSelectedResellerCurrency] = useState<Currency | null>(null);
   
   const toast = useRef<Toast>(null);
   const dt = useRef<DataTable<any>>(null);
@@ -65,7 +85,6 @@ const WithdrawRequestsPage = () => {
   
   const { currencies } = useSelector((state: any) => state.currenciesReducer);
   const { resellers } = useSelector((state: any) => state.resellerReducer);
-  const { paymentMethods } = useSelector((state: any) => state.paymentMethodsReducer);
   
   const { t } = useTranslation();
 
@@ -73,7 +92,6 @@ const WithdrawRequestsPage = () => {
     dispatch(fetchWithdrawRequests(1, filters));
     dispatch(_fetchCurrencies());
     dispatch(_fetchResellers());
-    dispatch(_fetchPaymentMethods());
   }, [dispatch, filters]);
 
   useEffect(() => {
@@ -101,6 +119,7 @@ const WithdrawRequestsPage = () => {
 
   const openNew = () => {
     setWithdrawRequest(emptyWithdrawRequest);
+    setSelectedResellerCurrency(null);
     setSubmitted(false);
     setWithdrawRequestDialog(true);
   };
@@ -108,12 +127,62 @@ const WithdrawRequestsPage = () => {
   const hideDialog = () => {
     setSubmitted(false);
     setWithdrawRequestDialog(false);
+    setSelectedResellerCurrency(null);
   };
 
   const hideStatusUpdateDialog = () => {
     setStatusUpdateDialog(false);
     setSelectedRequest(null);
     setAdminNote('');
+  };
+
+  // Find currency by code
+  const findCurrencyByCode = (code: string): Currency | null => {
+    return currencies.find((currency: Currency) => 
+      currency.code?.toUpperCase() === code?.toUpperCase()
+    ) || null;
+  };
+
+  // Handle reseller change to populate account details and auto-select currency
+  const handleResellerChange = (resellerId: number) => {
+    const selectedReseller = resellers.find((r: Reseller) => r.id === resellerId);
+    if (selectedReseller) {
+      // Find the currency based on reseller's code
+      const resellerCode = selectedReseller.code; // Assuming reseller has code attribute
+      let currency: Currency | null = null;
+      
+      if (resellerCode) {
+        currency = findCurrencyByCode(resellerCode);
+      }
+      
+      // If currency not found by code, try to find by country currency (based on your API structure)
+      if (!currency && selectedReseller.country?.currency_id) {
+        currency = currencies.find((c: Currency) => c.id === Number(selectedReseller.country?.currency_id));
+      }
+      
+      setSelectedResellerCurrency(currency);
+      
+      setWithdrawRequest(prev => ({
+        ...prev,
+        reseller_id: resellerId,
+        currency_id: currency?.id || 0,
+        bank_details: {
+          ...prev.bank_details,
+          account_holder_name: selectedReseller.reseller_name || selectedReseller.contact_name || ''
+        }
+      }));
+    } else {
+      setSelectedResellerCurrency(null);
+      setWithdrawRequest(prev => ({
+        ...prev,
+        reseller_id: 0,
+        currency_id: 0,
+        bank_details: {
+          ...prev.bank_details,
+          account_holder_name: ''
+        }
+      }));
+    }
   };
 
   const saveWithdrawRequest = () => {
@@ -123,10 +192,9 @@ const WithdrawRequestsPage = () => {
     if (!withdrawRequest.reseller_id ||
         !withdrawRequest.currency_id ||
         !withdrawRequest.amount ||
-        !withdrawRequest.payment_method_id ||
-        !withdrawRequest.account_name ||
-        !withdrawRequest.account_number ||
-        !withdrawRequest.bank_name) {
+        !withdrawRequest.bank_details?.bank_name ||
+        !withdrawRequest.bank_details?.account_holder_name ||
+        !withdrawRequest.bank_details?.account_number) {
       toast.current?.show({
         severity: 'error',
         summary: t('ERROR'),
@@ -146,28 +214,42 @@ const WithdrawRequestsPage = () => {
       return;
     }
 
+    // Prepare data for API
+    const requestData = {
+      reseller_id: withdrawRequest.reseller_id,
+      currency_id: withdrawRequest.currency_id,
+      amount: withdrawRequest.amount,
+      net_amount: withdrawRequest.net_amount || withdrawRequest.amount,
+      commission_amount: withdrawRequest.commission_amount || 0,
+      admin_note: withdrawRequest.admin_note,
+      bank_details: withdrawRequest.bank_details
+    };
+
     dispatch(createWithdrawRequest(
-      withdrawRequest as any,
+      requestData,
       toast,
       t,
       () => {
         setWithdrawRequestDialog(false);
         setWithdrawRequest(emptyWithdrawRequest);
+        setSelectedResellerCurrency(null);
         dispatch(fetchWithdrawRequests(1, filters));
       }
     ));
   };
 
-  const handleStatusUpdate = (status: 'approved' | 'rejected') => {
+  const handleStatusUpdate = (status: number) => {
     if (!selectedRequest) return;
+
+    // Map status numbers to string values
+    const statusString = status == 1 ? 'approved' : 'rejected';
 
     dispatch(updateWithdrawStatus(
       selectedRequest.id,
-      status,
+      statusString, 
+      adminNote,
       toast,
       t,
-      adminNote,
-      
       () => {
         hideStatusUpdateDialog();
         dispatch(fetchWithdrawRequests(1, filters));
@@ -175,9 +257,9 @@ const WithdrawRequestsPage = () => {
     ));
   };
 
-  const confirmStatusUpdate = (request: WithdrawRequest, status: 'approved' | 'rejected') => {
+  const confirmStatusUpdate = (request: WithdrawRequest, status: number) => {
     setSelectedRequest(request);
-    setAdminNote('');
+    setAdminNote(request.admin_note || '');
     setStatusUpdateDialog(true);
   };
 
@@ -211,7 +293,8 @@ const WithdrawRequestsPage = () => {
           />
         </span>
         
-        {/* <Dropdown
+        {/* Status Filter */}
+        <Dropdown
           value={statusFilter}
           options={[
             { label: t('ALL_STATUS'), value: '' },
@@ -222,9 +305,11 @@ const WithdrawRequestsPage = () => {
           onChange={(e) => setStatusFilter(e.value)}
           placeholder={t('FILTER_BY_STATUS')}
           className="w-full md:w-14rem"
-        /> */}
+        />
         
-     
+        
+        
+        
       </div>
     );
   };
@@ -234,13 +319,6 @@ const WithdrawRequestsPage = () => {
       <>
         <span className="p-column-title">{t('RESELLER')}</span>
         <div className="flex align-items-center gap-2">
-          {rowData.reseller?.profile_image_url && (
-            <img 
-              src={rowData.reseller.profile_image_url as string} 
-              alt={rowData.reseller?.reseller_name || ''}
-              className="w-8 h-8 rounded-circle"
-            />
-          )}
           <div>
             <div className="font-bold">{rowData.reseller?.reseller_name}</div>
             <small className="text-500">{rowData.reseller?.email}</small>
@@ -251,27 +329,18 @@ const WithdrawRequestsPage = () => {
   };
 
   const amountBodyTemplate = (rowData: WithdrawRequest) => {
+    const currencySymbol = rowData.currency?.symbol || '';
     return (
       <>
         <span className="p-column-title">{t('AMOUNT')}</span>
         <div className="flex align-items-center gap-2">
-          <span className={`fi fi-${rowData.currency?.code?.toLowerCase()?.substring(0, 2) || 'us'} fis`}></span>
+          {rowData.currency?.code && (
+            <span className={`fi fi-${rowData.currency.code.toLowerCase().substring(0, 2) || 'us'} fis`}></span>
+          )}
           <span className="font-bold">
-            {Number(rowData.amount).toLocaleString()} {rowData.currency?.symbol}
+            {Number(rowData.amount).toLocaleString()} {currencySymbol}
           </span>
         </div>
-      </>
-    );
-  };
-
-  const paymentMethodBodyTemplate = (rowData: WithdrawRequest) => {
-    return (
-      <>
-        <span className="p-column-title">{t('PAYMENT_METHOD')}</span>
-        <Tag
-          value={rowData.payment_method?.method_name || ''}
-          severity="info"
-        />
       </>
     );
   };
@@ -281,28 +350,29 @@ const WithdrawRequestsPage = () => {
       <>
         <span className="p-column-title">{t('BANK_DETAILS')}</span>
         <div>
-          <div><strong>{t('BANK')}:</strong> {rowData.bank_name}</div>
-          <div><strong>{t('ACCOUNT_NAME')}:</strong> {rowData.account_name}</div>
-          <div><strong>{t('ACCOUNT_NUMBER')}:</strong> {rowData.account_number}</div>
+          <div><strong>{t('BANK')}:</strong> {rowData.bank_details?.bank_name || '-'}</div>
+          <div><strong>{t('ACCOUNT_HOLDER')}:</strong> {rowData.bank_details?.account_holder_name || '-'}</div>
+          <div><strong>{t('ACCOUNT_NUMBER')}:</strong> {rowData.bank_details?.account_number || '-'}</div>
         </div>
       </>
     );
   };
 
   const statusBodyTemplate = (rowData: WithdrawRequest) => {
-    const statusConfig: Record<string, { severity: string, icon: string }> = {
-      0: { severity: 'warning', icon: 'pi pi-clock' },
-      1: { severity: 'success', icon: 'pi pi-check' },
-      2: { severity: 'danger', icon: 'pi pi-times' }
+    const statusConfig: Record<string, { severity: string, icon: string, label: string }> = {
+      'pending': { severity: 'warning', icon: 'pi pi-clock', label: t('PENDING') },
+      'approved': { severity: 'success', icon: 'pi pi-check', label: t('APPROVED') },
+      'rejected': { severity: 'danger', icon: 'pi pi-times', label: t('REJECTED') }
     };
 
-    const config = statusConfig[rowData.status] || statusConfig.pending;
+    const statusStr = rowData.status?.toString() || 'pending';
+    const config = statusConfig[statusStr] || statusConfig['pending'];
 
     return (
       <>
         <span className="p-column-title">{t('STATUS')}</span>
         <Tag
-          value={t(rowData.status.toString())}
+          value={config.label}
           severity={config.severity as any}
           icon={config.icon}
         />
@@ -316,79 +386,55 @@ const WithdrawRequestsPage = () => {
         <span className="p-column-title">{t('DATE')}</span>
         <div>
           <div><small>{new Date(rowData.created_at).toLocaleDateString()}</small></div>
-          <div><small>{new Date(rowData.created_at).toLocaleTimeString()}</small></div>
+          <div><small>{new Date(rowData.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div>
         </div>
       </>
     );
   };
 
   const actionBodyTemplate = (rowData: WithdrawRequest) => {
-    if (rowData.status !== 0) {
-      return (
-        <div className="flex gap-1">
-          <Button
-            icon="pi pi-eye"
-            rounded
-            severity="info"
-            tooltip={t('VIEW_DETAILS')}
-            tooltipOptions={{ position: 'top' }}
-          />
-          {rowData.admin_note && (
-            <Button
-              icon="pi pi-info-circle"
-              rounded
-              severity="help"
-              tooltip={rowData.admin_note}
-              tooltipOptions={{ position: 'top' }}
-            />
-          )}
-        </div>
-      );
-    }
-
+    const currentStatus = rowData.status?.toString() || 'pending';
+    
     return (
       <div className="flex gap-1">
-        <Button
-          icon="pi pi-check"
-          rounded
-          severity="success"
-          className="p-button-sm"
-          onClick={() => confirmStatusUpdate(rowData, 'approved')}
-          tooltip={t('APPROVE')}
-          tooltipOptions={{ position: 'top' }}
-        />
-        <Button
-          icon="pi pi-times"
-          rounded
-          severity="danger"
-          className="p-button-sm"
-          onClick={() => confirmStatusUpdate(rowData, 'rejected')}
-          tooltip={t('REJECT')}
-          tooltipOptions={{ position: 'top' }}
-        />
-        <Button
-          icon="pi pi-eye"
-          rounded
-          severity="info"
-          className="p-button-sm"
-          tooltip={t('VIEW_DETAILS')}
-          tooltipOptions={{ position: 'top' }}
-        />
+        {currentStatus === 'pending' && (
+          <>
+            <Button
+              icon="pi pi-check"
+              rounded
+              severity="success"
+              className="p-button-sm"
+              onClick={() => confirmStatusUpdate(rowData, 1)}
+              tooltip={t('APPROVE')}
+              tooltipOptions={{ position: 'top' }}
+            />
+            <Button
+              icon="pi pi-times"
+              rounded
+              severity="danger"
+              className="p-button-sm"
+              onClick={() => confirmStatusUpdate(rowData, 2)}
+              tooltip={t('REJECT')}
+              tooltipOptions={{ position: 'top' }}
+            />
+          </>
+        )}
+        
+        
       </div>
     );
   };
 
-  const notesBodyTemplate = (rowData: WithdrawRequest) => {
+  const currencyBodyTemplate = (rowData: WithdrawRequest) => {
     return (
       <>
-        <span className="p-column-title">{t('NOTES')}</span>
-        {rowData.notes ? (
-          <div className="max-w-xs">
-            <small className="text-500">{rowData.notes}</small>
-          </div>
-        ) : (
-          <span className="text-500">-</span>
-        )}
+        <span className="p-column-title">{t('CURRENCY')}</span>
+        <div className="flex align-items-center gap-2">
+          {rowData.currency?.code && (
+            <span className={`fi fi-${rowData.currency.code.toLowerCase().substring(0, 2) || 'us'} fis`}></span>
+          )}
+          <span>{rowData.currency?.code} ({rowData.currency?.symbol})</span>
+        </div>
       </>
     );
   };
@@ -402,37 +448,30 @@ const WithdrawRequestsPage = () => {
 
   const statusUpdateDialogFooter = (
     <>
-      <Button label={t('CANCEL')} icon="pi pi-times" severity="secondary" onClick={hideStatusUpdateDialog} />
-      <Button label={t('APPROVE')} icon="pi pi-check" severity="success" onClick={() => handleStatusUpdate('approved')} />
-      <Button label={t('REJECT')} icon="pi pi-times" severity="danger" onClick={() => handleStatusUpdate('rejected')} />
+      <Button 
+        label={t('CANCEL')} 
+        icon="pi pi-times" 
+        severity="secondary" 
+        onClick={hideStatusUpdateDialog} 
+      />
+      <div className="flex gap-2">
+        <Button 
+          label={t('APPROVE')} 
+          icon="pi pi-check" 
+          severity="success" 
+          onClick={() => handleStatusUpdate(1)}
+          disabled={selectedRequest?.status?.toString() === 'approved'}
+        />
+        <Button 
+          label={t('REJECT')} 
+          icon="pi pi-times" 
+          severity="danger" 
+          onClick={() => handleStatusUpdate(2)}
+          disabled={selectedRequest?.status?.toString() === 'rejected'}
+        />
+      </div>
     </>
   );
-
-  const availableCurrencies = currencies.filter((currency: Currency) => currency.deleted_at === null);
-
-  // Handle reseller change to populate account details
-  const handleResellerChange = (resellerId: number) => {
-    const selectedReseller = resellers.find((r: Reseller) => r.id === resellerId);
-    if (selectedReseller) {
-      setWithdrawRequest(prev => ({
-        ...prev,
-        reseller_id: resellerId,
-        account_name: selectedReseller.reseller_name || selectedReseller.contact_name || ''
-      }));
-    }
-  };
-
-  // Handle payment method change
-  const handlePaymentMethodChange = (methodId: number) => {
-    const selectedMethod = paymentMethods.find((m: PaymentMethod) => m.id === methodId);
-    if (selectedMethod) {
-      setWithdrawRequest(prev => ({
-        ...prev,
-        payment_method_id: methodId,
-        bank_name: selectedMethod.bank_name || selectedMethod.method_name || ''
-      }));
-    }
-  };
 
   return (
     <div className="grid -m-5">
@@ -440,43 +479,6 @@ const WithdrawRequestsPage = () => {
         <div className="card p-2">
           {loading && <ProgressBar mode="indeterminate" style={{ height: '6px' }} />}
           <Toast ref={toast} />
-          
-          {/* <Card title={t('WITHDRAW_REQUESTS')} className="mb-4">
-            <div className="grid">
-              <div className="col-12 md:col-3">
-                <div className="text-center p-3 border-round bg-blue-50">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {withdrawRequests.filter((r: WithdrawRequest) => r.status === 'pending').length}
-                  </div>
-                  <div className="font-medium">{t('PENDING')}</div>
-                </div>
-              </div>
-              <div className="col-12 md:col-3">
-                <div className="text-center p-3 border-round bg-green-50">
-                  <div className="text-2xl font-bold text-green-600">
-                    {withdrawRequests.filter((r: WithdrawRequest) => r.status === 'approved').length}
-                  </div>
-                  <div className="font-medium">{t('APPROVED')}</div>
-                </div>
-              </div>
-              <div className="col-12 md:col-3">
-                <div className="text-center p-3 border-round bg-red-50">
-                  <div className="text-2xl font-bold text-red-600">
-                    {withdrawRequests.filter((r: WithdrawRequest) => r.status === 'rejected').length}
-                  </div>
-                  <div className="font-medium">{t('REJECTED')}</div>
-                </div>
-              </div>
-              <div className="col-12 md:col-3">
-                <div className="text-center p-3 border-round bg-gray-50">
-                  <div className="text-2xl font-bold text-gray-600">
-                    {withdrawRequests.length}
-                  </div>
-                  <div className="font-medium">{t('TOTAL')}</div>
-                </div>
-              </div>
-            </div>
-          </Card> */}
 
           <Toolbar className="mb-4" left={leftToolbarTemplate} right={rightToolbarTemplate}></Toolbar>
 
@@ -503,19 +505,19 @@ const WithdrawRequestsPage = () => {
             style={{ direction: isRTL() ? 'rtl' : 'ltr', fontFamily: "'iranyekan', sans-serif,iranyekan" }}
             globalFilter={globalFilter}
             responsiveLayout="scroll"
-            
           >
             <Column selectionMode="multiple" headerStyle={{ width: '4rem' }}></Column>
-            <Column
-              style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
-              field="id"
-              header="ID"
-              sortable
-            ></Column>
+            
             <Column
               style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
               header={t('RESELLER')}
               body={resellerBodyTemplate}
+              sortable
+            ></Column>
+            <Column
+              style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
+              header={t('MENU.CURRENCY')}
+              body={currencyBodyTemplate}
               sortable
             ></Column>
             <Column
@@ -526,8 +528,34 @@ const WithdrawRequestsPage = () => {
             ></Column>
             <Column
               style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
-              header={t('PAYMENT_METHOD')}
-              body={paymentMethodBodyTemplate}
+              header={t('NET_AMOUNT')}
+              body={(rowData: WithdrawRequest) => {
+                const currencySymbol = rowData.currency?.symbol || '';
+                return (
+                  <div className="flex align-items-center gap-2">
+                    <span className={`fi fi-${rowData.currency?.code?.toLowerCase()?.substring(0, 2) || 'us'} fis`}></span>
+                    <span className="font-bold">
+                      {Number(rowData.net_amount || rowData.amount).toLocaleString()} {currencySymbol}
+                    </span>
+                  </div>
+                );
+              }}
+              sortable
+            ></Column>
+            <Column
+              style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
+              header={t('COMMISSION')}
+              body={(rowData: WithdrawRequest) => {
+                const currencySymbol = rowData.currency?.symbol || '';
+                return (
+                  <div className="flex align-items-center gap-2">
+                    <span className={`fi fi-${rowData.currency?.code?.toLowerCase()?.substring(0, 2) || 'us'} fis`}></span>
+                    <span className="font-bold">
+                      {Number(rowData.commission_amount || 0).toLocaleString()} {currencySymbol}
+                    </span>
+                  </div>
+                );
+              }}
               sortable
             ></Column>
             <Column
@@ -547,11 +575,7 @@ const WithdrawRequestsPage = () => {
               body={dateBodyTemplate}
               sortable
             ></Column>
-            <Column
-              style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
-              header={t('NOTES')}
-              body={notesBodyTemplate}
-            ></Column>
+           
             <Column
               style={{ ...customCellStyle, textAlign: ['ar', 'fa', 'ps', 'bn'].includes(i18n.language) ? 'right' : 'left' }}
               body={actionBodyTemplate}
@@ -578,7 +602,7 @@ const WithdrawRequestsPage = () => {
                 </label>
                 <Dropdown
                   id="reseller_id"
-                  value={Number(withdrawRequest.reseller_id)}
+                  value={withdrawRequest.reseller_id}
                   options={resellers}
                   onChange={(e) => handleResellerChange(Number(e.value))}
                   optionLabel="reseller_name"
@@ -598,40 +622,37 @@ const WithdrawRequestsPage = () => {
                 )}
               </div>
 
-              {/* Currency and Amount */}
+              {/* Currency Field (Auto-selected and disabled) */}
+              <div className="field mb-4">
+                <label htmlFor="currency_id" style={{ fontWeight: 'bold' }}>
+                  {t('CURRENCY')} *
+                </label>
+                <InputText
+                  id="currency_id"
+                  value={selectedResellerCurrency ? 
+                    `${selectedResellerCurrency.code} (${selectedResellerCurrency.symbol}) - ${selectedResellerCurrency.name}` : 
+                    t('SELECT_RESELLER_FIRST')
+                  }
+                  disabled
+                  className="w-full p-disabled"
+                  placeholder={t('CURRENCY_WILL_BE_AUTO_SELECTED')}
+                />
+                {submitted && !withdrawRequest.currency_id && (
+                  <small className="p-invalid" style={{ color: 'red' }}>
+                    {t('PLEASE_SELECT_A_RESELLER_FIRST')}
+                  </small>
+                )}
+              </div>
+
+              {/* Amount Fields */}
               <div className="formgrid grid mb-4">
-                <div className="field col">
-                  <label htmlFor="currency_id" style={{ fontWeight: 'bold' }}>
-                    {t('CURRENCY')} *
-                  </label>
-                  <Dropdown
-                    id="currency_id"
-                    value={Number(withdrawRequest.currency_id)}
-                    options={availableCurrencies}
-                    onChange={(e) => setWithdrawRequest(prev => ({
-                      ...prev,
-                      currency_id: Number(e.value)
-                    }))}
-                    optionLabel="code"
-                    optionValue="id"
-                    placeholder={t('SELECT_CURRENCY')}
-                    className={classNames({
-                      'p-invalid': submitted && !withdrawRequest.currency_id
-                    })}
-                  />
-                  {submitted && !withdrawRequest.currency_id && (
-                    <small className="p-invalid" style={{ color: 'red' }}>
-                      {t('THIS_FIELD_IS_REQUIRED')}
-                    </small>
-                  )}
-                </div>
                 <div className="field col">
                   <label htmlFor="amount" style={{ fontWeight: 'bold' }}>
                     {t('AMOUNT')} *
                   </label>
                   <InputNumber
                     id="amount"
-                    value={Number(withdrawRequest.amount)}
+                    value={withdrawRequest.amount}
                     onValueChange={(e) => setWithdrawRequest(prev => ({
                       ...prev,
                       amount: Number(e.value) || 0
@@ -649,30 +670,42 @@ const WithdrawRequestsPage = () => {
                     </small>
                   )}
                 </div>
+                <div className="field col">
+                  <label htmlFor="net_amount" style={{ fontWeight: 'bold' }}>
+                    {t('NET_AMOUNT')}
+                  </label>
+                  <InputNumber
+                    id="net_amount"
+                    value={withdrawRequest.net_amount || withdrawRequest.amount}
+                    onValueChange={(e) => setWithdrawRequest(prev => ({
+                      ...prev,
+                      net_amount: Number(e.value) || withdrawRequest.amount
+                    }))}
+                    mode="decimal"
+                    min={0}
+                    className="w-full"
+                    placeholder={t('ENTER_NET_AMOUNT')}
+                  />
+                </div>
               </div>
 
-              {/* Payment Method */}
+              {/* Commission Amount */}
               <div className="field mb-4">
-                <label htmlFor="payment_method_id" style={{ fontWeight: 'bold' }}>
-                  {t('PAYMENT_METHOD')} *
+                <label htmlFor="commission_amount" style={{ fontWeight: 'bold' }}>
+                  {t('COMMISSION_AMOUNT')}
                 </label>
-                <Dropdown
-                  id="payment_method_id"
-                  value={Number(withdrawRequest.payment_method_id)}
-                  options={paymentMethods}
-                  onChange={(e) => handlePaymentMethodChange(Number(e.value))}
-                  optionLabel="method_name"
-                  optionValue="id"
-                  placeholder={t('SELECT_PAYMENT_METHOD')}
-                  className={classNames({
-                    'p-invalid': submitted && !withdrawRequest.payment_method_id
-                  })}
+                <InputNumber
+                  id="commission_amount"
+                  value={withdrawRequest.commission_amount}
+                  onValueChange={(e) => setWithdrawRequest(prev => ({
+                    ...prev,
+                    commission_amount: Number(e.value) || 0
+                  }))}
+                  mode="decimal"
+                  min={0}
+                  className="w-full"
+                  placeholder={t('ENTER_COMMISSION_AMOUNT')}
                 />
-                {submitted && !withdrawRequest.payment_method_id && (
-                  <small className="p-invalid" style={{ color: 'red' }}>
-                    {t('THIS_FIELD_IS_REQUIRED')}
-                  </small>
-                )}
               </div>
 
               {/* Bank Details */}
@@ -683,39 +716,45 @@ const WithdrawRequestsPage = () => {
                   </label>
                   <InputText
                     id="bank_name"
-                    value={withdrawRequest.bank_name}
+                    value={withdrawRequest.bank_details?.bank_name || ''}
                     onChange={(e) => setWithdrawRequest(prev => ({
                       ...prev,
-                      bank_name: e.target.value
+                      bank_details: {
+                        ...prev.bank_details,
+                        bank_name: e.target.value
+                      }
                     }))}
                     className={classNames('w-full', {
-                      'p-invalid': submitted && !withdrawRequest.bank_name
+                      'p-invalid': submitted && !withdrawRequest.bank_details?.bank_name
                     })}
                     placeholder={t('ENTER_BANK_NAME')}
                   />
-                  {submitted && !withdrawRequest.bank_name && (
+                  {submitted && !withdrawRequest.bank_details?.bank_name && (
                     <small className="p-invalid" style={{ color: 'red' }}>
                       {t('THIS_FIELD_IS_REQUIRED')}
                     </small>
                   )}
                 </div>
                 <div className="field col">
-                  <label htmlFor="account_name" style={{ fontWeight: 'bold' }}>
-                    {t('ACCOUNT_NAME')} *
+                  <label htmlFor="account_holder_name" style={{ fontWeight: 'bold' }}>
+                    {t('ACCOUNT_HOLDER_NAME')} *
                   </label>
                   <InputText
-                    id="account_name"
-                    value={withdrawRequest.account_name}
+                    id="account_holder_name"
+                    value={withdrawRequest.bank_details?.account_holder_name || ''}
                     onChange={(e) => setWithdrawRequest(prev => ({
                       ...prev,
-                      account_name: e.target.value
+                      bank_details: {
+                        ...prev.bank_details,
+                        account_holder_name: e.target.value
+                      }
                     }))}
                     className={classNames('w-full', {
-                      'p-invalid': submitted && !withdrawRequest.account_name
+                      'p-invalid': submitted && !withdrawRequest.bank_details?.account_holder_name
                     })}
-                    placeholder={t('ENTER_ACCOUNT_NAME')}
+                    placeholder={t('ENTER_ACCOUNT_HOLDER_NAME')}
                   />
-                  {submitted && !withdrawRequest.account_name && (
+                  {submitted && !withdrawRequest.bank_details?.account_holder_name && (
                     <small className="p-invalid" style={{ color: 'red' }}>
                       {t('THIS_FIELD_IS_REQUIRED')}
                     </small>
@@ -723,45 +762,108 @@ const WithdrawRequestsPage = () => {
                 </div>
               </div>
 
-              {/* Account Number */}
-              <div className="field mb-4">
-                <label htmlFor="account_number" style={{ fontWeight: 'bold' }}>
-                  {t('ACCOUNT_NUMBER')} *
-                </label>
-                <InputText
-                  id="account_number"
-                  value={withdrawRequest.account_number}
-                  onChange={(e) => setWithdrawRequest(prev => ({
-                    ...prev,
-                    account_number: e.target.value
-                  }))}
-                  className={classNames('w-full', {
-                    'p-invalid': submitted && !withdrawRequest.account_number
-                  })}
-                  placeholder={t('ENTER_ACCOUNT_NUMBER')}
-                />
-                {submitted && !withdrawRequest.account_number && (
-                  <small className="p-invalid" style={{ color: 'red' }}>
-                    {t('THIS_FIELD_IS_REQUIRED')}
-                  </small>
-                )}
+              {/* Account Number and IBAN */}
+              <div className="formgrid grid mb-4">
+                <div className="field col">
+                  <label htmlFor="account_number" style={{ fontWeight: 'bold' }}>
+                    {t('ACCOUNT_NUMBER')} *
+                  </label>
+                  <InputText
+                    id="account_number"
+                    value={withdrawRequest.bank_details?.account_number || ''}
+                    onChange={(e) => setWithdrawRequest(prev => ({
+                      ...prev,
+                      bank_details: {
+                        ...prev.bank_details,
+                        account_number: e.target.value
+                      }
+                    }))}
+                    className={classNames('w-full', {
+                      'p-invalid': submitted && !withdrawRequest.bank_details?.account_number
+                    })}
+                    placeholder={t('ENTER_ACCOUNT_NUMBER')}
+                  />
+                  {submitted && !withdrawRequest.bank_details?.account_number && (
+                    <small className="p-invalid" style={{ color: 'red' }}>
+                      {t('THIS_FIELD_IS_REQUIRED')}
+                    </small>
+                  )}
+                </div>
+                <div className="field col">
+                  <label htmlFor="iban" style={{ fontWeight: 'bold' }}>
+                    {t('IBAN')}
+                  </label>
+                  <InputText
+                    id="iban"
+                    value={withdrawRequest.bank_details?.iban || ''}
+                    onChange={(e) => setWithdrawRequest(prev => ({
+                      ...prev,
+                      bank_details: {
+                        ...prev.bank_details,
+                        iban: e.target.value
+                      }
+                    }))}
+                    className="w-full"
+                    placeholder={t('ENTER_IBAN')}
+                  />
+                </div>
               </div>
 
-              {/* Notes */}
+              {/* Branch and Swift Code */}
+              <div className="formgrid grid mb-4">
+                <div className="field col">
+                  <label htmlFor="branch" style={{ fontWeight: 'bold' }}>
+                    {t('BRANCH')}
+                  </label>
+                  <InputText
+                    id="branch"
+                    value={withdrawRequest.bank_details?.branch || ''}
+                    onChange={(e) => setWithdrawRequest(prev => ({
+                      ...prev,
+                      bank_details: {
+                        ...prev.bank_details,
+                        branch: e.target.value
+                      }
+                    }))}
+                    className="w-full"
+                    placeholder={t('ENTER_BRANCH')}
+                  />
+                </div>
+                <div className="field col">
+                  <label htmlFor="swift_code" style={{ fontWeight: 'bold' }}>
+                    {t('SWIFT_CODE')}
+                  </label>
+                  <InputText
+                    id="swift_code"
+                    value={withdrawRequest.bank_details?.swift_code || ''}
+                    onChange={(e) => setWithdrawRequest(prev => ({
+                      ...prev,
+                      bank_details: {
+                        ...prev.bank_details,
+                        swift_code: e.target.value
+                      }
+                    }))}
+                    className="w-full"
+                    placeholder={t('ENTER_SWIFT_CODE')}
+                  />
+                </div>
+              </div>
+
+              {/* Admin Note */}
               <div className="field mb-4">
-                <label htmlFor="notes" style={{ fontWeight: 'bold' }}>
-                  {t('NOTES')}
+                <label htmlFor="admin_note" style={{ fontWeight: 'bold' }}>
+                  {t('ADMIN_NOTE')}
                 </label>
                 <textarea
-                  id="notes"
-                  value={withdrawRequest.notes}
+                  id="admin_note"
+                  value={withdrawRequest.admin_note || ''}
                   onChange={(e:any) => setWithdrawRequest(prev => ({
                     ...prev,
-                    notes: e.target.value
+                    admin_note: e.target.value
                   }))}
                   rows={3}
                   className="w-full"
-                  placeholder={t('ENTER_NOTES_OPTIONAL')}
+                  placeholder={t('ENTER_ADMIN_NOTE_OPTIONAL')}
                 />
               </div>
             </div>
@@ -770,42 +872,124 @@ const WithdrawRequestsPage = () => {
           {/* Status Update Dialog */}
           <Dialog
             visible={statusUpdateDialog}
-            style={{ width: '500px' }}
+            style={{ width: '550px' }}
             header={t('UPDATE_WITHDRAW_STATUS')}
             modal
             footer={statusUpdateDialogFooter}
             onHide={hideStatusUpdateDialog}
           >
-            <div className="flex flex-column align-items-center justify-content-center">
-              <i className="pi pi-exclamation-circle mx-3" style={{ fontSize: '2rem', color: 'var(--primary-color)' }} />
-              {selectedRequest && (
-                <div className="w-full">
-                  <div className="mb-3">
-                    <strong>{t('RESELLER')}:</strong> {selectedRequest.reseller?.reseller_name}
-                  </div>
-                  <div className="mb-3">
-                    <strong>{t('AMOUNT')}:</strong> {Number(selectedRequest.amount).toLocaleString()} {selectedRequest.currency?.symbol}
-                  </div>
-                  <div className="mb-3">
-                    <strong>{t('BANK_DETAILS')}:</strong> {selectedRequest.bank_name} - {selectedRequest.account_number}
-                  </div>
-                  
-                  <div className="field w-full">
-                    <label htmlFor="admin_note" className="font-bold block mb-2">
-                      {t('ADMIN_NOTE')}
-                    </label>
-                    <textarea
-                      id="admin_note"
-                      value={adminNote}
-                      onChange={(e:any) => setAdminNote(e.target.value)}
-                      rows={3}
-                      className="w-full"
-                      placeholder={t('ENTER_ADMIN_NOTE_OPTIONAL')}
-                    />
+            {selectedRequest && (
+              <div className="flex flex-column gap-4">
+                {/* Request Information */}
+                <div className="surface-50 p-3 border-round">
+                  <div className="grid">
+                    <div className="col-6">
+                      <div className="text-sm font-semibold text-500 mb-1">{t('RESELLER')}</div>
+                      <div className="font-bold">{selectedRequest.reseller?.reseller_name}</div>
+                      <div className="text-sm text-500">{selectedRequest.reseller?.email}</div>
+                    </div>
+                    <div className="col-6">
+                      <div className="text-sm font-semibold text-500 mb-1">{t('REQUEST_ID')}</div>
+                      <div className="font-bold">#{selectedRequest.id}</div>
+                      <div className="text-sm text-500">
+                        {new Date(selectedRequest.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+
+                {/* Amount Information */}
+                <div className="surface-50 p-3 border-round">
+                  <div className="grid">
+                    <div className="col-4">
+                      <div className="text-sm font-semibold text-500 mb-1">{t('AMOUNT')}</div>
+                      <div className="font-bold text-primary">
+                        {Number(selectedRequest.amount).toLocaleString()} {selectedRequest.currency?.symbol}
+                      </div>
+                    </div>
+                    <div className="col-4">
+                      <div className="text-sm font-semibold text-500 mb-1">{t('COMMISSION')}</div>
+                      <div className="font-bold text-500">
+                        {Number(selectedRequest.commission_amount).toLocaleString()} {selectedRequest.currency?.symbol}
+                      </div>
+                    </div>
+                    <div className="col-4">
+                      <div className="text-sm font-semibold text-500 mb-1">{t('NET_AMOUNT')}</div>
+                      <div className="font-bold text-green-600">
+                        {Number(selectedRequest.net_amount).toLocaleString()} {selectedRequest.currency?.symbol}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="surface-50 p-3 border-round">
+                  <div className="text-sm font-semibold text-500 mb-2">{t('BANK_DETAILS')}</div>
+                  <div className="grid">
+                    <div className="col-6 mb-2">
+                      <div className="text-xs text-500">{t('BANK_NAME')}</div>
+                      <div>{selectedRequest.bank_details?.bank_name || '-'}</div>
+                    </div>
+                    <div className="col-6 mb-2">
+                      <div className="text-xs text-500">{t('ACCOUNT_HOLDER')}</div>
+                      <div>{selectedRequest.bank_details?.account_holder_name || '-'}</div>
+                    </div>
+                    <div className="col-6 mb-2">
+                      <div className="text-xs text-500">{t('ACCOUNT_NUMBER')}</div>
+                      <div>{selectedRequest.bank_details?.account_number || '-'}</div>
+                    </div>
+                    <div className="col-6 mb-2">
+                      <div className="text-xs text-500">{t('IBAN')}</div>
+                      <div>{selectedRequest.bank_details?.iban || '-'}</div>
+                    </div>
+                    {selectedRequest.bank_details?.branch && (
+                      <div className="col-6 mb-2">
+                        <div className="text-xs text-500">{t('BRANCH')}</div>
+                        <div>{selectedRequest.bank_details.branch}</div>
+                      </div>
+                    )}
+                    {selectedRequest.bank_details?.swift_code && (
+                      <div className="col-6 mb-2">
+                        <div className="text-xs text-500">{t('SWIFT_CODE')}</div>
+                        <div>{selectedRequest.bank_details.swift_code}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Current Status */}
+                <div className="flex align-items-center justify-content-between p-3 surface-50 border-round">
+                  <div>
+                    <div className="text-sm font-semibold text-500 mb-1">{t('CURRENT_STATUS')}</div>
+                    {statusBodyTemplate(selectedRequest)}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-500 mb-1">{t('REQUESTED_BY')}</div>
+                    <div>{ t('SYSTEM')}</div>
+                  </div>
+                </div>
+
+                {/* Admin Note Input */}
+                <div className="field w-full">
+                  <label htmlFor="admin_note" className="font-bold block mb-2">
+                    {t('ADMIN_NOTE')} {selectedRequest.admin_note && <span className="text-500">({t('EXISTING_NOTE')})</span>}
+                  </label>
+                  <textarea
+                    id="admin_note"
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    rows={3}
+                    className="w-full"
+                    placeholder={t('ENTER_ADMIN_NOTE_OPTIONAL')}
+                  />
+                  {selectedRequest.admin_note && (
+                    <small className="text-500 mt-1 block">
+                      {t('EXISTING_NOTE')}: {selectedRequest.admin_note}
+                    </small>
+                  )}
+                </div>
+              </div>
+            )}
           </Dialog>
         </div>
       </div>

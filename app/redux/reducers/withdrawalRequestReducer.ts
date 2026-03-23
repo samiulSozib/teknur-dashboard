@@ -23,7 +23,6 @@ export interface WithdrawRequestsState {
     status?: string;
     reseller_id?: number;
     currency_id?: number;
-    payment_method_id?: number;
     start_date?: string;
     end_date?: string;
   };
@@ -73,7 +72,7 @@ export const withdrawRequestsReducer = (
         ...state,
         loading: false,
         withdrawRequests: state.withdrawRequests.map((request) =>
-          request.id === action.payload.id ? action.payload : request
+          request.id === action.payload.id ? { ...request, ...action.payload } : request
         ),
         error: null,
       };
