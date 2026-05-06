@@ -69,17 +69,41 @@ export interface Bundle {
 }
 
 export interface ApiBinding {
-    product_type: string;
-    operator: string;
-    internet_type: string;
-    sim_type: string;
-    product_id: number | string;
-    table_id: number | string;
-    name: string;
-    days: number | string;
-    volume: number | string;
-    unit: string;
-    periodicity: string;
+    // product_type: string;
+    // operator: string;
+    // internet_type: string;
+    // sim_type: string;
+    // product_id: number | string;
+    // table_id: number | string;
+    // name: string;
+    // days: number | string;
+    // volume: number | string;
+    // unit: string;
+    // periodicity: string;
+    // Common properties (optional)
+    product_type?: string;
+    product_id?: number | string;
+    name?: string;
+    price?: number | string;
+    stock?: number;
+    description?: string;
+
+    // Non-MZR provider properties
+    operator?: string;
+    internet_type?: string;
+    sim_type?: string;
+    table_id?: number | string;
+    days?: number | string;
+    volume?: number | string;
+    unit?: string;
+    periodicity?: string;
+
+    // MZR provider properties
+    category_id?: number;
+    category_name?: string;
+
+    // Allow any additional properties for flexibility
+    [key: string]: any;
 }
 
 export interface PaginationLink {
@@ -892,7 +916,11 @@ export interface RawInternet {
     amount_rial: number;
     gross_price_rial: number;
     internet_type: string;
-    meta?:Meta
+    meta?:Meta;
+    price?:number;
+    stock?:number;
+    description?:string;
+
 }
 export interface RawBundles{
 
@@ -1063,4 +1091,25 @@ export interface ApiKey {
   created_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
   updated_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
   reseller: Reseller|null;
+}
+
+
+// interfaces/providerProductsInterface.ts
+export interface Category {
+    id: number;
+    name: string;
+    icon: string | null;
+    product_count: number;
+    is_auto: boolean;
+    purchase_type: 'voucher' | 'recharge';
+}
+
+export interface Product {
+    id: number;
+    name: string;
+    description: string;
+    category_id: number;
+    category_title: string;
+    price: number;
+    stock: number;
 }
