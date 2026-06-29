@@ -790,7 +790,18 @@ export interface AppSettings {
     afg_custom_recharge_selling_price_adjust_mode?: string,
     afg_custom_recharge_selling_price_adjust_value?: number,
     setaragan_admin_buying_price_percentage?: number,
-    custom_recharge_api_provider_id: number|null, // Add this line
+    custom_recharge_api_provider_id: number | null, // Add this line
+
+     // New Telegram Settings
+    telegram_enabled: boolean;
+    telegram_send_payments: boolean;
+    telegram_payment_chat_ids: string[];
+    telegram_send_balances: boolean;
+    telegram_balance_chat_ids: string[];
+    telegram_send_transactions: boolean;
+    telegram_transaction_chat_ids: string[];
+    telegram_send_vouchers: boolean;
+    telegram_voucher_chat_ids: string[];
 
 }
 
@@ -916,26 +927,26 @@ export interface RawInternet {
     amount_rial: number;
     gross_price_rial: number;
     internet_type: string;
-    meta?:Meta;
-    price?:number;
-    stock?:number;
-    description?:string;
+    meta?: Meta;
+    price?: number;
+    stock?: number;
+    description?: string;
 
 }
-export interface RawBundles{
+export interface RawBundles {
 
-    id:string;
-    title:string;
-    desc:string;
-    price:string;
-    tprice:string;
+    id: string;
+    title: string;
+    desc: string;
+    price: string;
+    tprice: string;
 }
 
 export interface SingleProviderResponse {
     provider: SingleProvider;
     internets: Internet[];
     rawInternets: RawInternet[];
-    rawBundles:RawBundles[];
+    rawBundles: RawBundles[];
 }
 
 
@@ -982,115 +993,115 @@ export interface HawalaNumberSeries {
 
 
 export interface SupportContacts {
-  id: number;
-  title: string;
-  description: string;
-  phone: string;
-  is_whatsapp: boolean;
-  is_phone: boolean;
-  status: "active" | "inactive";
-  links: {
-    telegram: string;
-    website: string;
-  };
+    id: number;
+    title: string;
+    description: string;
+    phone: string;
+    is_whatsapp: boolean;
+    is_phone: boolean;
+    status: "active" | "inactive";
+    links: {
+        telegram: string;
+        website: string;
+    };
 }
 
 
-export interface Notification{
-    id:number;
-    title?:string;
-    message?:string;
-    reseller_id?:number;
-    status?:number|boolean;
-    target_type?:string|null;
-    media?:null|string|File;
-    created_at?:string|null;
-    is_read?:boolean
+export interface Notification {
+    id: number;
+    title?: string;
+    message?: string;
+    reseller_id?: number;
+    status?: number | boolean;
+    target_type?: string | null;
+    media?: null | string | File;
+    created_at?: string | null;
+    is_read?: boolean
 }
 
 export interface WithdrawalPolicy {
-  id: number;
-  currency_id: number;
-  commission_type: 'percentage' | 'fixed';
-  commission_value: number;
-  min_withdraw_amount: number;
-  max_withdraw_amount: number;
-  status: boolean;
-  currency?: Currency
+    id: number;
+    currency_id: number;
+    commission_type: 'percentage' | 'fixed';
+    commission_value: number;
+    min_withdraw_amount: number;
+    max_withdraw_amount: number;
+    status: boolean;
+    currency?: Currency
 }
 
 
 export interface WithdrawRequest {
-  id: number;
-  reseller_id: number;
-  currency_id: number;
-  amount: number;
-  net_amount:number;
-  commission_amount:number;
-  admin_note?: string;
-  status: number;
-  created_at: string;
-  updated_at: string;
-  reseller?: Reseller;
-  currency?: Currency;
-  bank_details?:{
-    bank_name?:string;
-    account_holder_name?:string;
-    account_number?:string;
-    iban?:string;
-    branch?:string;
-    swift_code?:string
-  }
+    id: number;
+    reseller_id: number;
+    currency_id: number;
+    amount: number;
+    net_amount: number;
+    commission_amount: number;
+    admin_note?: string;
+    status: number;
+    created_at: string;
+    updated_at: string;
+    reseller?: Reseller;
+    currency?: Currency;
+    bank_details?: {
+        bank_name?: string;
+        account_holder_name?: string;
+        account_number?: string;
+        iban?: string;
+        branch?: string;
+        swift_code?: string
+    }
 }
 
 export interface ApiInfoProvider {
-  id: number;
-  code: string;
-  name: string;
-  has_credentials: boolean;
+    id: number;
+    code: string;
+    name: string;
+    has_credentials: boolean;
 }
 
 export interface ApiInfoAccountInfo {
-  balance: number;
-  currency: string;
-  last_updated: string; // Format: "YYYY-MM-DD HH:mm:ss"
+    balance: number;
+    currency: string;
+    last_updated: string; // Format: "YYYY-MM-DD HH:mm:ss"
 }
 
 export interface ApiInfoUser {
-  uid: string;
-  name: string;
-  balance: number;
-  lang: string;
+    uid: string;
+    name: string;
+    balance: number;
+    lang: string;
 }
 
 export interface ApiInfoTransaction {
-  id: number;
-  phone: string;
-  created_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.sssZ"
-  finalAmount: number;
-  type: string; // Could be more specific like 'recharge' | 'balance' | etc.
-  b_name: string;
+    id: number;
+    phone: string;
+    created_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.sssZ"
+    finalAmount: number;
+    type: string; // Could be more specific like 'recharge' | 'balance' | etc.
+    b_name: string;
 }
 
 export interface AccountData {
-  provider: ApiInfoProvider;
-  account_info: ApiInfoAccountInfo;
-  user: ApiInfoUser;
-  recent_transactions: ApiInfoTransaction[];
+    provider: ApiInfoProvider;
+    account_info: ApiInfoAccountInfo;
+    user: ApiInfoUser;
+    recent_transactions: ApiInfoTransaction[];
 }
 
 export interface ApiKey {
-  id: number;
-  key: string;
-  name: string;
-  is_active: boolean;
-  expires_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
-  last_used_at: string | null; // ISO format or null if never used
-  allowed_ips: string[];
-  rate_limit: number;
-  created_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
-  updated_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
-  reseller: Reseller|null;
+    id: number;
+    key: string;
+    name: string;
+    is_active: boolean;
+    expires_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
+    last_used_at: string | null; // ISO format or null if never used
+    allowed_ips: string[];
+    rate_limit: number;
+    created_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
+    updated_at: string; // ISO format: "YYYY-MM-DDTHH:mm:ss.000000Z"
+    reseller: Reseller | null;
 }
 
 
@@ -1112,4 +1123,275 @@ export interface Product {
     category_title: string;
     price: number;
     stock: number;
+}
+
+
+// ============================
+// Base/Common Interfaces
+// ============================
+
+export interface ServiceCategory {
+    id: number;
+    category_name: string;
+    type: string;
+}
+
+
+
+
+
+
+// ============================
+// Voucher Related Interfaces
+// ============================
+
+export interface Voucher {
+    id?: number;
+    company_name: string;
+    bundle_title: string;
+    bundle: Bundle;
+    voucher_code?: string;
+    provider?: string;
+    expires_at?: string;
+    notes?: string;
+    metadata?: any;
+    status?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface VoucherStatistics {
+    total: number;
+    available: number;
+    used: number;
+    reserved: number;
+    expired: number;
+}
+
+export interface VoucherPagination {
+    current_page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+}
+
+export interface VoucherListResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        vouchers: Voucher[];
+        statistics: VoucherStatistics;
+        pagination: VoucherPagination;
+    };
+    payload: any[];
+}
+
+export interface SingleVoucherResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        voucher: Voucher;
+    };
+    payload: any[];
+}
+
+// ============================
+// Create/Update Voucher
+// ============================
+
+export interface CreateVoucherPayload {
+    bundle_id: number;
+    voucher_code: string;
+    provider: string;
+    expires_at: string;
+    notes?: string;
+    metadata?: {
+        region?: string;
+        source?: string;
+        [key: string]: any;
+    };
+}
+
+export interface UpdateVoucherPayload {
+    voucher_code?: string;
+    notes?: string;
+    expires_at?: string;
+    metadata?: any;
+    status?: string;
+}
+
+// ============================
+// Bulk Import Interfaces
+// ============================
+
+export interface BulkImportVoucher {
+    code: string;
+    expires_at: string;
+    notes?: string;
+    metadata?: {
+        region?: string;
+        batch?: string;
+        [key: string]: any;
+    };
+}
+
+export interface BulkImportPayload {
+    bundle_id: number;
+    provider: string;
+    vouchers: BulkImportVoucher[];
+}
+
+export interface BulkImportSummary {
+    total: number;
+    imported: number;
+    failed: number;
+    errors?: Array<{
+        index: number;
+        code: string;
+        error: string;
+    }>;
+}
+
+export interface BulkImportResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        vouchers: Voucher[];
+        summary: BulkImportSummary;
+    };
+    payload: any[];
+}
+
+// ============================
+// Social Companies Interfaces
+// ============================
+
+export interface SocialCompany {
+    id: number;
+    company_name: string;
+    company_logo: string;
+    country_id: string;
+    telegram_chat_id: string;
+    deleted_at: string | null;
+    created_at: string;
+    updated_at: string;
+    input_form_schema: any | null;
+    performed_by: any | null;
+    services_count: string;
+    total_vouchers: number;
+    available_vouchers: number;
+}
+
+export interface SocialCompaniesResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        companies: SocialCompany[];
+    };
+    payload: any[];
+}
+
+// ============================
+// Bundle Stats Interfaces
+// ============================
+
+export interface BundleService {
+    id: number;
+    service_category_id: string;
+    company_id: string;
+    telegram_chat_id: string | null;
+    deleted_at: string | null;
+    created_at: string;
+    updated_at: string;
+    input_form_schema: any | null;
+    performed_by: any | null;
+    company: Company;
+    service_category: ServiceCategory;
+}
+
+export interface BundleStat {
+    id: number;
+    bundle_code: string;
+    service_id: string;
+    bundle_title: string;
+    bundle_description: string;
+    bundle_type: string;
+    validity_type: string;
+    admin_buying_price: string;
+    buying_price: string;
+    selling_price: string;
+    required_credit_amount_to_activate_bundle: string | null;
+    discount_amount: string;
+    discounted_price: string | null;
+    discount_type: string | null;
+    discount_source_id: string | null;
+    discount_source_type: string | null;
+    amount: string | null;
+    bundle_image_url: string | null;
+    currency_id: string;
+    expired_date: string | null;
+    deleted_at: string | null;
+    created_at: string;
+    updated_at: string;
+    performed_by: any | null;
+    api_provider_id: string | null;
+    api_provider_bundle_id: string | null;
+    api_binding: any | null;
+    total: string;
+    available: string;
+    used: string;
+    reserved: string;
+    company_name: string;
+    category_type: string;
+    service: BundleService;
+}
+
+export interface BundleStatsResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        bundles: BundleStat[];
+    };
+    payload: any[];
+}
+
+// ============================
+// Voucher Filter/Query Params
+// ============================
+
+export interface VoucherQueryParams {
+    bundle_id?: number;
+    page?: number;
+    items_per_page?: number;
+    status?: 'available' | 'used' | 'reserved' | 'expired' | 'all';
+    search?: string;
+    provider?: string;
+}
+
+// ============================
+// Redux State Interfaces
+// ============================
+
+export interface BulkImportState {
+    loading: boolean;
+    success: boolean;
+    error: string | null;
+    summary: BulkImportSummary | null;
+}
+
+export interface VoucherState {
+    vouchers: Voucher[];
+    currentVoucher: Voucher | null;
+    statistics: VoucherStatistics | null;
+    pagination: VoucherPagination | null;
+    socialCompanies: SocialCompany[];
+    bundleStats: BundleStat[];
+    loading: boolean;
+    error: string | null;
+    bulkImport: BulkImportState;
 }
