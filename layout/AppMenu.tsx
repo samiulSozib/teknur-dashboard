@@ -1,12 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
-import React, { useContext } from 'react';
+import { AppMenuItem } from '@/types';
+import { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppMenuitem from './AppMenuitem';
 import { LayoutContext } from './context/layoutcontext';
 import { MenuProvider } from './context/menucontext';
-import Link from 'next/link';
-import { AppMenuItem } from '@/types';
-import { useTranslation } from 'react-i18next';
 
 const AppMenu = () => {
     const { layoutConfig } = useContext(LayoutContext);
@@ -263,13 +262,18 @@ const AppMenu = () => {
                     icon: 'pi pi-fw pi-question-circle',
                     to: '/pages/api-keys'
                 },
+                {
+                    label: t('TRANSLATION_WORKSPACE'),
+                    icon: 'pi pi-fw pi-question-circle',
+                    to: '/pages/translation-workspace?type=bundle'
+                },
             ]
         }
     ];
 
     return (
         <MenuProvider>
-            <ul className="layout-menu" style={{
+            {/* <ul className="layout-menu" style={{
                 padding: '0.25rem 0',
                 margin: 0,
                 listStyle: 'none'
@@ -281,6 +285,31 @@ const AppMenu = () => {
                         </li>
                     ) : (
                         <li className="menu-separator" style={{ margin: '0.125rem 0' }}></li>
+                    );
+                })}
+            </ul> */}
+            <ul
+                className="layout-menu"
+                style={{
+                    padding: '0.25rem 0',
+                    margin: 0,
+                    listStyle: 'none'
+                }}
+            >
+                {model.map((item, i) => {
+                    return !item?.seperator ? (
+                        <AppMenuitem
+                            key={item.label}
+                            item={item}
+                            root={true}
+                            index={i}
+                        />
+                    ) : (
+                        <li
+                            key={`separator-${i}`}
+                            className="menu-separator"
+                            style={{ margin: '0.125rem 0' }}
+                        />
                     );
                 })}
             </ul>

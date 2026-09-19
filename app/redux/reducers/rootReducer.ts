@@ -15,7 +15,7 @@ import { suppliersReducer } from './supplierReducer';
 import { provinceReducer } from './provinceReducer';
 import { districtReducer } from './districtReducer';
 import { resellerReducer } from './resellerReducer';
-import { orderReducer } from './orderReducer';
+import { orderReducer, paystoreStatusReducer } from './orderReducer';
 import { languageReducer } from './languageReducer';
 import { advertisementsReducer } from './advertisementReducer';
 import { balanceReducer } from './balanceReducer';
@@ -46,6 +46,7 @@ import { withdrawRequestsReducer } from './withdrawalRequestReducer';
 import {providerInfoReducer} from './provideInfoReducer'
 import {apiKeyReducer} from './apiKeyReducer'
 import voucherReducer from './voucherReducer'
+import  translationReducer  from './translationReducer';
 
 const rootReducer=combineReducers({
     currenciesReducer:currenciesReducer,
@@ -94,7 +95,10 @@ const rootReducer=combineReducers({
     withdrawRequestsReducer:withdrawRequestsReducer,
     providerInfoReducer:providerInfoReducer,
     apiKeyReducer:apiKeyReducer,
-    voucherReducer:voucherReducer
+    voucherReducer:voucherReducer,
+    translationReducer: translationReducer,
+    paystoreStatusReducer: paystoreStatusReducer,
+
 })
 
 

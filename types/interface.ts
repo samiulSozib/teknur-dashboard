@@ -320,10 +320,9 @@ export interface PaymentMethod {
     account_number?: string | null;
     sheba_number?: string | null;
 
-
-
     // New notes field from migration
     notes?: string | null;
+    method_type?: 'bank' | 'card' | 'sheba' | 'other' | null;
 
 
 }
@@ -631,6 +630,7 @@ export interface HawalaCurrency {
     to_currency_id: number;
     to_currency: Currency | null,
     amount: number,
+    amount_in_letter:string,
     buy_rate: string | null;
     sell_rate: string | null
     deleted_at: string | null;
@@ -1395,4 +1395,143 @@ export interface VoucherState {
     loading: boolean;
     error: string | null;
     bulkImport: BulkImportState;
+}
+
+
+export interface Product {
+  id: number;
+  provider_table_id: string;
+  title: string;
+  desc: string;
+  operator: string;
+  op_firm: string;
+  type: string;
+  amount: string;
+  price: number;
+  recommended_price: number;
+  validity_days: number;
+  internet_mb: number;
+  minutes: number;
+  sms: number;
+  api_binding: {
+    product_id: number;
+    operator: string;
+    operator_raw: string;
+    op_firm: string;
+    op_firm_raw: string;
+    type: string;
+    amount: string;
+    package_name: string;
+    price: string;
+    recom_price: string;
+    packet_privacy: {
+      UsableDays: number;
+      MinAbroad: string;
+      MinAllDirection: string;
+      MinInNetwork: string;
+      Sms: string;
+      InternetMb: string;
+      isSocial: number;
+      officialSalePrice: string;
+    };
+  };
+  raw: {
+    ProductId: number;
+    Operator: string;
+    OpFirm: string;
+    Type: string;
+    PackageName: string;
+    PackageDescription: string;
+    Amount: string;
+    Price: string;
+    RecomPrice: string;
+    PacketPrivacy: {
+      UsableDays: number;
+      MinAbroad: string;
+      MinAllDirection: string;
+      MinInNetwork: string;
+      Sms: string;
+      InternetMb: string;
+      isSocial: number;
+      officialSalePrice: string;
+    };
+  };
+}
+
+
+// types/paystore.ts
+export interface PaystoreOperator {
+    code: string;
+    product_count: number;
+}
+
+export interface PaystoreGroup {
+    op_firm: string;
+    product_count: number;
+    operators: PaystoreOperator[];
+}
+
+export interface PaystoreOperatorsResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        groups: PaystoreGroup[];
+        total_groups: number;
+    };
+    payload: any[];
+}
+
+export interface PaystoreOperatorsState {
+    loading: boolean;
+    groups: PaystoreGroup[];
+    totalGroups: number;
+    error: string | null;
+    selectedGroup: PaystoreGroup | null;
+    selectedOperator: PaystoreOperator | null;
+}
+
+
+// types/order.ts (add these to your existing Order interface)
+// types/order.ts
+
+export interface PaystoreStatusResponse {
+    success: boolean;
+    code: number;
+    message: string;
+    data: {
+        order_id: number;
+        order_status: string;
+        is_paid: string;
+        local_transaction_id: string | null;
+        provider: string;
+        provider_id: number;
+        provider_transaction_id: string;
+        provider_status: string; // 'success' | 'pending' | 'cancelled' | 'error'
+        provider_response_code: string;
+        provider_message: string;
+        provider_response: {
+            ResponseCode: string;
+            Message_TR: string;
+            Message_EN: string;
+            HostDateTime: string;
+        };
+        payment: {
+            success: boolean;
+            already_paid: boolean;
+            transaction_id: string;
+        } | null;
+        refund: {
+            success: boolean;
+            refunded: boolean;
+            message: string;
+        } | null;
+    };
+    payload: any[];
+}
+
+export interface PaystoreStatusState {
+    loading: boolean;
+    statusData: PaystoreStatusResponse['data'] | null;
+    error: string | null;
 }
